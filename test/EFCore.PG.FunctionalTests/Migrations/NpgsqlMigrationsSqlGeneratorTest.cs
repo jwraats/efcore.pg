@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using NpgsqlTypes;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata.Internal;
@@ -538,6 +539,170 @@ DROP SEQUENCE "Person_Id_old_seq";
 
 """);
     }
+
+    #region Without Overlaps (PostgreSQL 18 temporal constraints)
+
+    [Fact]
+    public void CreateTableOperation_with_primary_key_without_overlaps()
+    {
+        var op =
+            new CreateTableOperation
+            {
+                Name = "People",
+                Schema = "dbo",
+                Columns =
+                {
+                    new AddColumnOperation
+                    {
+                        Name = "Id",
+                        Table = "People",
+                        Schema = "dbo",
+                        ClrType = typeof(int),
+                        IsNullable = false
+                    },
+                    new AddColumnOperation
+                    {
+                        Name = "ValidPeriod",
+                        Table = "People",
+                        Schema = "dbo",
+                        ClrType = typeof(NpgsqlRange<DateTime>),
+                        ColumnType = "tstzrange",
+                        IsNullable = false
+                    },
+                },
+                PrimaryKey = new AddPrimaryKeyOperation
+                {
+                    Columns = ["Id", "ValidPeriod"],
+                    [NpgsqlAnnotationNames.WithoutOverlaps] = true
+                }
+            };
+
+        Generate(op);
+
+        AssertSql(
+            """
+CREATE TABLE dbo."People" (
+    "Id" integer NOT NULL,
+    "ValidPeriod" tstzrange NOT NULL,
+    PRIMARY KEY ("Id", "ValidPeriod" WITHOUT OVERLAPS)
+);
+
+""");
+    }
+
+    [Fact]
+    public void CreateTableOperation_with_unique_constraint_without_overlaps()
+    {
+        var op =
+            new CreateTableOperation
+            {
+                Name = "People",
+                Schema = "dbo",
+                Columns =
+                {
+                    new AddColumnOperation
+                    {
+                        Name = "Id",
+                        Table = "People",
+                        Schema = "dbo",
+                        ClrType = typeof(int),
+                        IsNullable = false
+                    },
+                    new AddColumnOperation
+                    {
+                        Name = "LicensePlate",
+                        Table = "People",
+                        Schema = "dbo",
+                        ClrType = typeof(string),
+                        ColumnType = "text",
+                        IsNullable = false
+                    },
+                    new AddColumnOperation
+                    {
+                        Name = "ValidPeriod",
+                        Table = "People",
+                        Schema = "dbo",
+                        ClrType = typeof(NpgsqlRange<DateTime>),
+                        ColumnType = "tstzrange",
+                        IsNullable = false
+                    },
+                },
+                PrimaryKey = new AddPrimaryKeyOperation { Columns = ["Id"] },
+                UniqueConstraints =
+                {
+                    new AddUniqueConstraintOperation
+                    {
+                        Name = "AK_People_LicensePlate_ValidPeriod",
+                        Columns = ["LicensePlate", "ValidPeriod"],
+                        [NpgsqlAnnotationNames.WithoutOverlaps] = true
+                    }
+                }
+            };
+
+        Generate(op);
+
+        AssertSql(
+            """
+CREATE TABLE dbo."People" (
+    "Id" integer NOT NULL,
+    "LicensePlate" text NOT NULL,
+    "ValidPeriod" tstzrange NOT NULL,
+    PRIMARY KEY ("Id"),
+    CONSTRAINT "AK_People_LicensePlate_ValidPeriod" UNIQUE ("LicensePlate", "ValidPeriod" WITHOUT OVERLAPS)
+);
+
+""");
+    }
+
+    [Fact]
+    public void CreateTableOperation_with_primary_key_without_without_overlaps()
+    {
+        // Verify normal primary key still works (WITHOUT OVERLAPS not enabled)
+        var op =
+            new CreateTableOperation
+            {
+                Name = "People",
+                Schema = "dbo",
+                Columns =
+                {
+                    new AddColumnOperation
+                    {
+                        Name = "Id",
+                        Table = "People",
+                        Schema = "dbo",
+                        ClrType = typeof(int),
+                        IsNullable = false
+                    },
+                    new AddColumnOperation
+                    {
+                        Name = "ValidPeriod",
+                        Table = "People",
+                        Schema = "dbo",
+                        ClrType = typeof(NpgsqlRange<DateTime>),
+                        ColumnType = "tstzrange",
+                        IsNullable = false
+                    },
+                },
+                PrimaryKey = new AddPrimaryKeyOperation
+                {
+                    Columns = ["Id", "ValidPeriod"]
+                }
+            };
+
+        Generate(op);
+
+        AssertSql(
+            """
+CREATE TABLE dbo."People" (
+    "Id" integer NOT NULL,
+    "ValidPeriod" tstzrange NOT NULL,
+    PRIMARY KEY ("Id", "ValidPeriod")
+);
+
+""");
+    }
+
+    #endregion Without Overlaps
 
     #region CockroachDB interleave-in-parent
 

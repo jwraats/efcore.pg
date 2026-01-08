@@ -1579,6 +1579,93 @@ public class NpgsqlMigrationsSqlGenerator : MigrationsSqlGenerator
         }
     }
 
+    /// <inheritdoc />
+    protected override void PrimaryKeyConstraint(
+        AddPrimaryKeyOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder)
+    {
+        Check.NotNull(operation, nameof(operation));
+        Check.NotNull(builder, nameof(builder));
+
+        if (operation.Name is not null)
+        {
+            builder
+                .Append("CONSTRAINT ")
+                .Append(DelimitIdentifier(operation.Name))
+                .Append(" ");
+        }
+
+        builder.Append("PRIMARY KEY ");
+
+        IndexTraits(operation, model, builder);
+
+        builder.Append("(");
+        GenerateKeyColumnList(operation.Columns, operation, builder);
+        builder.Append(")");
+
+        IndexOptions(operation, model, builder);
+    }
+
+    /// <inheritdoc />
+    protected override void UniqueConstraint(
+        AddUniqueConstraintOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder)
+    {
+        Check.NotNull(operation, nameof(operation));
+        Check.NotNull(builder, nameof(builder));
+
+        if (operation.Name is not null)
+        {
+            builder
+                .Append("CONSTRAINT ")
+                .Append(DelimitIdentifier(operation.Name))
+                .Append(" ");
+        }
+
+        builder.Append("UNIQUE ");
+
+        IndexTraits(operation, model, builder);
+
+        builder.Append("(");
+        GenerateKeyColumnList(operation.Columns, operation, builder);
+        builder.Append(")");
+
+        IndexOptions(operation, model, builder);
+    }
+
+    /// <summary>
+    ///     Generates a SQL fragment for the column list of a primary key or unique constraint,
+    ///     with support for WITHOUT OVERLAPS for PostgreSQL 18+ temporal constraints.
+    /// </summary>
+    /// <param name="columns">The columns in the key.</param>
+    /// <param name="operation">The operation.</param>
+    /// <param name="builder">The command builder to use to add the SQL fragment.</param>
+    protected virtual void GenerateKeyColumnList(
+        string[] columns,
+        MigrationOperation operation,
+        MigrationCommandListBuilder builder)
+    {
+        var withoutOverlaps = operation[NpgsqlAnnotationNames.WithoutOverlaps] as bool? == true;
+
+        for (var i = 0; i < columns.Length; i++)
+        {
+            if (i > 0)
+            {
+                builder.Append(", ");
+            }
+
+            builder.Append(DelimitIdentifier(columns[i]));
+
+            // Add WITHOUT OVERLAPS after the last column if enabled
+            if (withoutOverlaps && i == columns.Length - 1)
+            {
+                builder.Append(" WITHOUT OVERLAPS");
+            }
+        }
+    }
+
     #endregion Standard migrations
 
     #region Utilities
