@@ -57,6 +57,62 @@ public class NpgsqlBuilderExtensionsTest
         Assert.Null(model.FindSequence(NpgsqlModelExtensions.DefaultHiLoSequenceName));
     }
 
+    [Fact]
+    public void Can_set_WithoutOverlaps_on_primary_key()
+    {
+        var modelBuilder = CreateConventionModelBuilder();
+
+        modelBuilder.Entity<TemporalEntity>(b =>
+        {
+            b.HasKey(e => new { e.Id, e.ValidPeriod })
+                .WithoutOverlaps();
+        });
+
+        var model = modelBuilder.Model;
+        var entityType = model.FindEntityType(typeof(TemporalEntity));
+        var primaryKey = entityType.FindPrimaryKey();
+
+        Assert.NotNull(primaryKey);
+        Assert.True(primaryKey.GetWithoutOverlaps());
+    }
+
+    [Fact]
+    public void Can_set_WithoutOverlaps_to_false()
+    {
+        var modelBuilder = CreateConventionModelBuilder();
+
+        modelBuilder.Entity<TemporalEntity>(b =>
+        {
+            b.HasKey(e => new { e.Id, e.ValidPeriod })
+                .WithoutOverlaps(false);
+        });
+
+        var model = modelBuilder.Model;
+        var entityType = model.FindEntityType(typeof(TemporalEntity));
+        var primaryKey = entityType.FindPrimaryKey();
+
+        Assert.NotNull(primaryKey);
+        Assert.False(primaryKey.GetWithoutOverlaps());
+    }
+
+    [Fact]
+    public void WithoutOverlaps_is_null_by_default()
+    {
+        var modelBuilder = CreateConventionModelBuilder();
+
+        modelBuilder.Entity<TemporalEntity>(b =>
+        {
+            b.HasKey(e => new { e.Id, e.ValidPeriod });
+        });
+
+        var model = modelBuilder.Model;
+        var entityType = model.FindEntityType(typeof(TemporalEntity));
+        var primaryKey = entityType.FindPrimaryKey();
+
+        Assert.NotNull(primaryKey);
+        Assert.Null(primaryKey.GetWithoutOverlaps());
+    }
+
     protected virtual ModelBuilder CreateConventionModelBuilder()
         => NpgsqlTestHelpers.Instance.CreateConventionBuilder();
 
@@ -84,5 +140,11 @@ public class NpgsqlBuilderExtensionsTest
 
         public int OrderId { get; set; }
         public Order Order { get; set; }
+    }
+
+    private class TemporalEntity
+    {
+        public int Id { get; set; }
+        public NpgsqlTypes.NpgsqlRange<DateTime> ValidPeriod { get; set; }
     }
 }
