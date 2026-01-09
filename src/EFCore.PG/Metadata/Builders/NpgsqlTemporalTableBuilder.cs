@@ -25,6 +25,8 @@ public class NpgsqlTemporalTableBuilder
     /// <param name="entityTypeBuilder">The entity type builder.</param>
     public NpgsqlTemporalTableBuilder(EntityTypeBuilder entityTypeBuilder)
     {
+        Check.NotNull(entityTypeBuilder, nameof(entityTypeBuilder));
+
         _entityTypeBuilder = entityTypeBuilder;
     }
 
@@ -46,6 +48,8 @@ public class NpgsqlTemporalTableBuilder
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
     public virtual NpgsqlTemporalTableBuilder HasPeriodColumnName(string periodColumnName)
     {
+        Check.NotEmpty(periodColumnName, nameof(periodColumnName));
+
         _entityTypeBuilder.Metadata.SetTemporalPeriodColumnName(periodColumnName);
         return this;
     }

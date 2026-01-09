@@ -37,6 +37,8 @@ public static class NpgsqlTableBuilderExtensions
         this TableBuilder tableBuilder,
         bool temporal = true)
     {
+        Check.NotNull(tableBuilder, nameof(tableBuilder));
+
         tableBuilder.Metadata.SetIsTemporal(temporal);
 
         return new NpgsqlTemporalTableBuilder(tableBuilder.GetInfrastructure());
@@ -63,6 +65,9 @@ public static class NpgsqlTableBuilderExtensions
         this TableBuilder tableBuilder,
         Action<NpgsqlTemporalTableBuilder> buildAction)
     {
+        Check.NotNull(tableBuilder, nameof(tableBuilder));
+        Check.NotNull(buildAction, nameof(buildAction));
+
         tableBuilder.Metadata.SetIsTemporal(true);
 
         buildAction(new NpgsqlTemporalTableBuilder(tableBuilder.GetInfrastructure()));
@@ -93,6 +98,8 @@ public static class NpgsqlTableBuilderExtensions
         bool temporal = true)
         where TEntity : class
     {
+        Check.NotNull(tableBuilder, nameof(tableBuilder));
+
         tableBuilder.Metadata.SetIsTemporal(temporal);
 
         return new NpgsqlTemporalTableBuilder<TEntity>(tableBuilder.GetInfrastructure<EntityTypeBuilder<TEntity>>());
@@ -121,6 +128,9 @@ public static class NpgsqlTableBuilderExtensions
         Action<NpgsqlTemporalTableBuilder<TEntity>> buildAction)
         where TEntity : class
     {
+        Check.NotNull(tableBuilder, nameof(tableBuilder));
+        Check.NotNull(buildAction, nameof(buildAction));
+
         tableBuilder.Metadata.SetIsTemporal(true);
         buildAction(new NpgsqlTemporalTableBuilder<TEntity>(tableBuilder.GetInfrastructure<EntityTypeBuilder<TEntity>>()));
 
