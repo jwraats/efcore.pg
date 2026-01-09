@@ -19,16 +19,16 @@ public class TemporalTablesNpgsqlTest : IClassFixture<TemporalTablesNpgsqlTest.T
         await context.Database.EnsureCreatedAsync();
 
         // Verify that the main table exists
-        var tableExists = await context.Database.ExecuteSqlRawAsync(
-            "SELECT 1 FROM information_schema.tables WHERE table_name = 'Employees' LIMIT 1");
+        var tableCount = await context.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'Employees'").FirstOrDefaultAsync();
         
-        Assert.True(tableExists >= 0);
+        Assert.Equal(1, tableCount);
 
         // Verify that the history table exists
-        var historyTableExists = await context.Database.ExecuteSqlRawAsync(
-            "SELECT 1 FROM information_schema.tables WHERE table_name = 'EmployeesHistory' LIMIT 1");
+        var historyTableCount = await context.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'EmployeesHistory'").FirstOrDefaultAsync();
         
-        Assert.True(historyTableExists >= 0);
+        Assert.Equal(1, historyTableCount);
     }
 
     [Fact]
@@ -58,13 +58,11 @@ public class TemporalTablesNpgsqlTest : IClassFixture<TemporalTablesNpgsqlTest.T
 
         // Check history table has the old value
         await using var rawContext = CreateContext();
-        #pragma warning disable EF1002 // SQL injection warning - employeeId is from database
-        var historyCount = await rawContext.Database.ExecuteSqlRawAsync(
-            $"SELECT COUNT(*) FROM \"EmployeesHistory\" WHERE \"Id\" = {employeeId}");
-        #pragma warning restore EF1002
+        var historyCount = await rawContext.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*) FROM \"EmployeesHistory\" WHERE \"Id\" = {0}", employeeId).FirstOrDefaultAsync();
 
-        // Note: The history trigger should have created a record
-        Assert.True(historyCount >= 0);
+        // The history trigger should have created a record
+        Assert.True(historyCount > 0, "Expected at least one history record to be created");
     }
 
     private TemporalTablesContext CreateContext()

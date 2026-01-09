@@ -2436,16 +2436,15 @@ public class NpgsqlMigrationsSqlGenerator : MigrationsSqlGenerator
         using (builder.Indent())
         {
             // Add all columns from the main table
-            for (var i = 0; i < operation.Columns.Count; i++)
+            var processedColumns = operation.Columns.Where(c => !IsSystemColumn(c.Name)).ToList();
+            
+            for (var i = 0; i < processedColumns.Count; i++)
             {
-                var column = operation.Columns[i];
+                var column = processedColumns[i];
                 
-                if (IsSystemColumn(column.Name))
-                    continue;
-
                 ColumnDefinition(column, model, builder);
                 
-                if (i < operation.Columns.Count - 1)
+                if (i < processedColumns.Count - 1)
                 {
                     builder.AppendLine(",");
                 }
