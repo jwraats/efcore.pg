@@ -113,6 +113,59 @@ public class NpgsqlBuilderExtensionsTest
         Assert.Null(primaryKey.GetWithoutOverlaps());
     }
 
+    [Fact]
+    public void Can_set_IsTemporal_on_table()
+    {
+        var modelBuilder = CreateConventionModelBuilder();
+
+        modelBuilder.Entity<TemporalEntity>(b =>
+        {
+            b.ToTable("TemporalEntities", tb => tb.IsTemporal());
+        });
+
+        var model = modelBuilder.Model;
+        var entityType = model.FindEntityType(typeof(TemporalEntity));
+
+        Assert.NotNull(entityType);
+        Assert.True(entityType.GetIsTemporal());
+    }
+
+    [Fact]
+    public void Can_set_IsTemporal_with_period_column_name()
+    {
+        var modelBuilder = CreateConventionModelBuilder();
+
+        modelBuilder.Entity<TemporalEntity>(b =>
+        {
+            b.ToTable("TemporalEntities", tb => tb.IsTemporal(t =>
+                t.HasPeriodColumnName("ValidPeriod")));
+        });
+
+        var model = modelBuilder.Model;
+        var entityType = model.FindEntityType(typeof(TemporalEntity));
+
+        Assert.NotNull(entityType);
+        Assert.True(entityType.GetIsTemporal());
+        Assert.Equal("ValidPeriod", entityType.GetTemporalPeriodColumnName());
+    }
+
+    [Fact]
+    public void IsTemporal_is_false_by_default()
+    {
+        var modelBuilder = CreateConventionModelBuilder();
+
+        modelBuilder.Entity<TemporalEntity>(b =>
+        {
+            b.ToTable("TemporalEntities");
+        });
+
+        var model = modelBuilder.Model;
+        var entityType = model.FindEntityType(typeof(TemporalEntity));
+
+        Assert.NotNull(entityType);
+        Assert.False(entityType.GetIsTemporal());
+    }
+
     protected virtual ModelBuilder CreateConventionModelBuilder()
         => NpgsqlTestHelpers.Instance.CreateConventionBuilder();
 
