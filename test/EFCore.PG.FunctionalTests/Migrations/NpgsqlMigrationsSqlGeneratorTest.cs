@@ -704,6 +704,108 @@ CREATE TABLE dbo."People" (
 
     #endregion Without Overlaps
 
+    #region Temporal tables
+
+    [Fact]
+    public void CreateTableOperation_with_temporal_table()
+    {
+        var op =
+            new CreateTableOperation
+            {
+                Name = "People",
+                Schema = "dbo",
+                Columns =
+                {
+                    new AddColumnOperation
+                    {
+                        Name = "Id",
+                        Table = "People",
+                        Schema = "dbo",
+                        ClrType = typeof(int),
+                        IsNullable = false
+                    },
+                    new AddColumnOperation
+                    {
+                        Name = "Name",
+                        Table = "People",
+                        Schema = "dbo",
+                        ClrType = typeof(string),
+                        ColumnType = "text",
+                        IsNullable = false
+                    },
+                    new AddColumnOperation
+                    {
+                        Name = "PeriodStart",
+                        Table = "People",
+                        Schema = "dbo",
+                        ClrType = typeof(DateTime),
+                        ColumnType = "timestamp with time zone",
+                        IsNullable = false
+                    },
+                    new AddColumnOperation
+                    {
+                        Name = "PeriodEnd",
+                        Table = "People",
+                        Schema = "dbo",
+                        ClrType = typeof(DateTime),
+                        ColumnType = "timestamp with time zone",
+                        IsNullable = false
+                    },
+                },
+                PrimaryKey = new AddPrimaryKeyOperation { Columns = ["Id"] },
+                [NpgsqlAnnotationNames.IsTemporal] = true,
+                [NpgsqlAnnotationNames.TemporalHistoryTableName] = "PeopleHistory",
+                [NpgsqlAnnotationNames.TemporalHistoryTableSchema] = "dbo",
+                [NpgsqlAnnotationNames.TemporalPeriodStartPropertyName] = "PeriodStart",
+                [NpgsqlAnnotationNames.TemporalPeriodEndPropertyName] = "PeriodEnd"
+            };
+
+        Generate(op);
+
+        AssertSql(
+            """
+CREATE TABLE dbo."People" (
+    "Id" integer NOT NULL,
+    "Name" text NOT NULL,
+    "PeriodStart" timestamp with time zone NOT NULL,
+    "PeriodEnd" timestamp with time zone NOT NULL,
+    PRIMARY KEY ("Id")
+);
+GO
+
+CREATE TABLE dbo."PeopleHistory" (
+    "Id" integer NOT NULL,
+    "Name" text NOT NULL,
+    "PeriodStart" timestamp with time zone NOT NULL,
+    "PeriodEnd" timestamp with time zone NOT NULL
+);
+GO
+
+CREATE OR REPLACE FUNCTION "dbo_People_history_trigger"()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF (TG_OP = 'DELETE') THEN
+        INSERT INTO dbo."PeopleHistory" SELECT OLD.*;
+        RETURN OLD;
+    ELSIF (TG_OP = 'UPDATE') THEN
+        INSERT INTO dbo."PeopleHistory" SELECT OLD.*;
+        RETURN NEW;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+GO
+
+CREATE TRIGGER "People_history_trigger"
+    AFTER UPDATE OR DELETE ON dbo."People"
+    FOR EACH ROW
+    EXECUTE FUNCTION "dbo_People_history_trigger"();
+
+""");
+    }
+
+    #endregion Temporal tables
+
     #region CockroachDB interleave-in-parent
 
     // Note that we don't run tests against actual CockroachDB instances, so these are unit tests asserting on SQL
