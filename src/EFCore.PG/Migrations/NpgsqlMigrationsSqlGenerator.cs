@@ -2462,11 +2462,14 @@ public class NpgsqlMigrationsSqlGenerator : MigrationsSqlGenerator
         EndStatement(builder);
 
         // Create trigger function to maintain history
-        var functionName = $"{operation.Schema ?? "public"}_{operation.Name}_history_trigger";
+        var schemaPrefix = operation.Schema ?? "public";
+        var functionName = schemaPrefix + "_" + operation.Name + "_history_trigger";
         var functionFullName = DelimitIdentifier(functionName);
 
         builder
-            .AppendLine($"CREATE OR REPLACE FUNCTION {functionFullName}()")
+            .Append("CREATE OR REPLACE FUNCTION ")
+            .Append(functionFullName)
+            .AppendLine("()")
             .AppendLine("RETURNS TRIGGER AS $$")
             .AppendLine("BEGIN")
             .Append("    IF (TG_OP = 'DELETE') THEN")
@@ -2491,7 +2494,7 @@ public class NpgsqlMigrationsSqlGenerator : MigrationsSqlGenerator
         EndStatement(builder);
 
         // Create trigger on the main table
-        var triggerName = $"{operation.Name}_history_trigger";
+        var triggerName = operation.Name + "_history_trigger";
         
         builder
             .Append("CREATE TRIGGER ")
