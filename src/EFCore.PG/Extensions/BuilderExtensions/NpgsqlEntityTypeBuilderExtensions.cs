@@ -294,4 +294,223 @@ public static class NpgsqlEntityTypeBuilderExtensions
             (EntityTypeBuilder)entityTypeBuilder, parentTableType, interleavePrefix);
 
     #endregion CockroachDB Interleave-in-parent
+
+    #region Temporal tables
+
+    /// <summary>
+    ///     Configures the entity type to use a temporal table when targeting PostgreSQL.
+    /// </summary>
+    /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
+    /// <param name="temporal">A value indicating whether the entity type is mapped to a temporal table.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    /// <remarks>
+    ///     See <see href="https://www.postgresql.org/docs/current/sql-createtable.html">PostgreSQL temporal tables</see> for more information.
+    /// </remarks>
+    public static EntityTypeBuilder IsTemporal(
+        this EntityTypeBuilder entityTypeBuilder,
+        bool temporal = true)
+    {
+        Check.NotNull(entityTypeBuilder, nameof(entityTypeBuilder));
+
+        entityTypeBuilder.Metadata.SetIsTemporal(temporal);
+
+        if (temporal)
+        {
+            // Set default period property names if not already set
+            if (entityTypeBuilder.Metadata.GetTemporalPeriodStartPropertyName() == null)
+            {
+                entityTypeBuilder.Metadata.SetTemporalPeriodStartPropertyName("PeriodStart");
+            }
+
+            if (entityTypeBuilder.Metadata.GetTemporalPeriodEndPropertyName() == null)
+            {
+                entityTypeBuilder.Metadata.SetTemporalPeriodEndPropertyName("PeriodEnd");
+            }
+
+            // Set default history table name if not already set
+            if (entityTypeBuilder.Metadata.GetTemporalHistoryTableName() == null)
+            {
+                var tableName = entityTypeBuilder.Metadata.GetTableName();
+                entityTypeBuilder.Metadata.SetTemporalHistoryTableName(tableName + "History");
+            }
+        }
+
+        return entityTypeBuilder;
+    }
+
+    /// <summary>
+    ///     Configures the entity type to use a temporal table when targeting PostgreSQL.
+    /// </summary>
+    /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
+    /// <param name="temporal">A value indicating whether the entity type is mapped to a temporal table.</param>
+    /// <param name="buildAction">An action that performs configuration of the temporal table.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    /// <remarks>
+    ///     See <see href="https://www.postgresql.org/docs/current/sql-createtable.html">PostgreSQL temporal tables</see> for more information.
+    /// </remarks>
+    public static EntityTypeBuilder IsTemporal(
+        this EntityTypeBuilder entityTypeBuilder,
+        bool temporal,
+        Action<TemporalTableBuilder> buildAction)
+    {
+        Check.NotNull(entityTypeBuilder, nameof(entityTypeBuilder));
+        Check.NotNull(buildAction, nameof(buildAction));
+
+        entityTypeBuilder.IsTemporal(temporal);
+
+        if (temporal)
+        {
+            buildAction(new TemporalTableBuilder(entityTypeBuilder));
+        }
+
+        return entityTypeBuilder;
+    }
+
+    /// <summary>
+    ///     Configures the entity type to use a temporal table when targeting PostgreSQL.
+    /// </summary>
+    /// <typeparam name="TEntity">The entity type being configured.</typeparam>
+    /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
+    /// <param name="temporal">A value indicating whether the entity type is mapped to a temporal table.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    /// <remarks>
+    ///     See <see href="https://www.postgresql.org/docs/current/sql-createtable.html">PostgreSQL temporal tables</see> for more information.
+    /// </remarks>
+    public static EntityTypeBuilder<TEntity> IsTemporal<TEntity>(
+        this EntityTypeBuilder<TEntity> entityTypeBuilder,
+        bool temporal = true)
+        where TEntity : class
+        => (EntityTypeBuilder<TEntity>)IsTemporal((EntityTypeBuilder)entityTypeBuilder, temporal);
+
+    /// <summary>
+    ///     Configures the entity type to use a temporal table when targeting PostgreSQL.
+    /// </summary>
+    /// <typeparam name="TEntity">The entity type being configured.</typeparam>
+    /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
+    /// <param name="temporal">A value indicating whether the entity type is mapped to a temporal table.</param>
+    /// <param name="buildAction">An action that performs configuration of the temporal table.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    /// <remarks>
+    ///     See <see href="https://www.postgresql.org/docs/current/sql-createtable.html">PostgreSQL temporal tables</see> for more information.
+    /// </remarks>
+    public static EntityTypeBuilder<TEntity> IsTemporal<TEntity>(
+        this EntityTypeBuilder<TEntity> entityTypeBuilder,
+        bool temporal,
+        Action<TemporalTableBuilder> buildAction)
+        where TEntity : class
+        => (EntityTypeBuilder<TEntity>)IsTemporal((EntityTypeBuilder)entityTypeBuilder, temporal, buildAction);
+
+    /// <summary>
+    ///     Configures the entity type to use a temporal table when targeting PostgreSQL.
+    /// </summary>
+    /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
+    /// <param name="temporal">A value indicating whether the entity type is mapped to a temporal table.</param>
+    /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+    /// <returns>
+    ///     The same builder instance if the configuration was applied; <see langword="null" /> otherwise.
+    /// </returns>
+    public static IConventionEntityTypeBuilder? IsTemporal(
+        this IConventionEntityTypeBuilder entityTypeBuilder,
+        bool temporal = true,
+        bool fromDataAnnotation = false)
+    {
+        if (entityTypeBuilder.CanSetIsTemporal(temporal, fromDataAnnotation))
+        {
+            entityTypeBuilder.Metadata.SetIsTemporal(temporal, fromDataAnnotation);
+
+            if (temporal)
+            {
+                // Set default period property names if not already set
+                if (entityTypeBuilder.Metadata.GetTemporalPeriodStartPropertyName() == null)
+                {
+                    entityTypeBuilder.Metadata.SetTemporalPeriodStartPropertyName("PeriodStart", fromDataAnnotation);
+                }
+
+                if (entityTypeBuilder.Metadata.GetTemporalPeriodEndPropertyName() == null)
+                {
+                    entityTypeBuilder.Metadata.SetTemporalPeriodEndPropertyName("PeriodEnd", fromDataAnnotation);
+                }
+
+                // Set default history table name if not already set
+                if (entityTypeBuilder.Metadata.GetTemporalHistoryTableName() == null)
+                {
+                    var tableName = entityTypeBuilder.Metadata.GetTableName();
+                    entityTypeBuilder.Metadata.SetTemporalHistoryTableName(tableName + "History", fromDataAnnotation);
+                }
+            }
+
+            return entityTypeBuilder;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    ///     Returns a value indicating whether the entity type can be configured as a temporal table.
+    /// </summary>
+    /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
+    /// <param name="temporal">A value indicating whether the entity type is mapped to a temporal table.</param>
+    /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+    /// <returns><see langword="true"/> if the entity type can be configured as temporal.</returns>
+    public static bool CanSetIsTemporal(
+        this IConventionEntityTypeBuilder entityTypeBuilder,
+        bool temporal = true,
+        bool fromDataAnnotation = false)
+    {
+        Check.NotNull(entityTypeBuilder, nameof(entityTypeBuilder));
+
+        return entityTypeBuilder.CanSetAnnotation(NpgsqlAnnotationNames.IsTemporal, temporal, fromDataAnnotation);
+    }
+
+    #endregion Temporal tables
+}
+
+/// <summary>
+///     Allows configuration of a temporal table.
+/// </summary>
+public class TemporalTableBuilder
+{
+    private readonly EntityTypeBuilder _entityTypeBuilder;
+
+    /// <summary>
+    ///     Creates a new instance of <see cref="TemporalTableBuilder"/>.
+    /// </summary>
+    /// <param name="entityTypeBuilder">The entity type builder.</param>
+    public TemporalTableBuilder(EntityTypeBuilder entityTypeBuilder)
+    {
+        _entityTypeBuilder = entityTypeBuilder;
+    }
+
+    /// <summary>
+    ///     Configures the history table name and schema.
+    /// </summary>
+    /// <param name="name">The name of the history table.</param>
+    /// <param name="schema">The schema of the history table.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    public TemporalTableBuilder UseHistoryTable(string name, string? schema = null)
+    {
+        Check.NotNull(name, nameof(name));
+
+        _entityTypeBuilder.Metadata.SetTemporalHistoryTableName(name);
+        _entityTypeBuilder.Metadata.SetTemporalHistoryTableSchema(schema);
+
+        return this;
+    }
+
+    /// <summary>
+    ///     Configures the period start and end column names.
+    /// </summary>
+    /// <param name="periodStartPropertyName">The name of the period start property.</param>
+    /// <param name="periodEndPropertyName">The name of the period end property.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    public TemporalTableBuilder HasPeriod(string periodStartPropertyName, string periodEndPropertyName)
+    {
+        Check.NotNull(periodStartPropertyName, nameof(periodStartPropertyName));
+        Check.NotNull(periodEndPropertyName, nameof(periodEndPropertyName));
+
+        _entityTypeBuilder.Metadata.SetTemporalPeriodStartPropertyName(periodStartPropertyName);
+        _entityTypeBuilder.Metadata.SetTemporalPeriodEndPropertyName(periodEndPropertyName);
+
+        return this;
+    }
 }

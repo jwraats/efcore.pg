@@ -242,6 +242,12 @@ public class NpgsqlMigrationsSqlGenerator : MigrationsSqlGenerator
             builder.AppendLine(";");
             EndStatement(builder);
         }
+
+        // Handle temporal table setup after main table creation
+        if (operation[NpgsqlAnnotationNames.IsTemporal] as bool? == true && terminate)
+        {
+            GenerateTemporalTableSetup(operation, model, builder);
+        }
     }
 
     /// <inheritdoc />
@@ -2396,6 +2402,111 @@ public class NpgsqlMigrationsSqlGenerator : MigrationsSqlGenerator
         public string? Collation { get; } = collation;
         public bool IsDescending { get; } = isDescending;
         public NullSortOrder NullSortOrder { get; } = nullSortOrder;
+    }
+
+    #endregion
+
+    #region Temporal tables
+
+    private void GenerateTemporalTableSetup(
+        CreateTableOperation operation,
+        IModel? model,
+        MigrationCommandListBuilder builder)
+    {
+        var historyTableName = operation[NpgsqlAnnotationNames.TemporalHistoryTableName] as string
+            ?? operation.Name + "History";
+        var historyTableSchema = operation[NpgsqlAnnotationNames.TemporalHistoryTableSchema] as string
+            ?? operation.Schema;
+        var periodStartColumnName = operation[NpgsqlAnnotationNames.TemporalPeriodStartPropertyName] as string
+            ?? "PeriodStart";
+        var periodEndColumnName = operation[NpgsqlAnnotationNames.TemporalPeriodEndPropertyName] as string
+            ?? "PeriodEnd";
+
+        var tableName = DelimitIdentifier(operation.Name, operation.Schema);
+        var historyTableFullName = DelimitIdentifier(historyTableName, historyTableSchema);
+        var periodStartColumn = DelimitIdentifier(periodStartColumnName);
+        var periodEndColumn = DelimitIdentifier(periodEndColumnName);
+
+        // Create history table with the same structure as the main table
+        builder
+            .Append("CREATE TABLE ")
+            .Append(historyTableFullName)
+            .AppendLine(" (");
+
+        using (builder.Indent())
+        {
+            // Add all columns from the main table
+            for (var i = 0; i < operation.Columns.Count; i++)
+            {
+                var column = operation.Columns[i];
+                
+                if (IsSystemColumn(column.Name))
+                    continue;
+
+                ColumnDefinition(column, model, builder);
+                
+                if (i < operation.Columns.Count - 1)
+                {
+                    builder.AppendLine(",");
+                }
+                else
+                {
+                    builder.AppendLine();
+                }
+            }
+        }
+
+        builder
+            .Append(")")
+            .AppendLine(";");
+
+        EndStatement(builder);
+
+        // Create trigger function to maintain history
+        var functionName = $"{operation.Schema ?? "public"}_{operation.Name}_history_trigger";
+        var functionFullName = DelimitIdentifier(functionName);
+
+        builder
+            .AppendLine($"CREATE OR REPLACE FUNCTION {functionFullName}()")
+            .AppendLine("RETURNS TRIGGER AS $$")
+            .AppendLine("BEGIN")
+            .Append("    IF (TG_OP = 'DELETE') THEN")
+            .AppendLine()
+            .Append("        INSERT INTO ")
+            .Append(historyTableFullName)
+            .Append(" SELECT OLD.*")
+            .AppendLine(";")
+            .AppendLine("        RETURN OLD;")
+            .Append("    ELSIF (TG_OP = 'UPDATE') THEN")
+            .AppendLine()
+            .Append("        INSERT INTO ")
+            .Append(historyTableFullName)
+            .Append(" SELECT OLD.*")
+            .AppendLine(";")
+            .AppendLine("        RETURN NEW;")
+            .AppendLine("    END IF;")
+            .AppendLine("    RETURN NULL;")
+            .AppendLine("END;")
+            .AppendLine("$$ LANGUAGE plpgsql;");
+
+        EndStatement(builder);
+
+        // Create trigger on the main table
+        var triggerName = $"{operation.Name}_history_trigger";
+        
+        builder
+            .Append("CREATE TRIGGER ")
+            .Append(DelimitIdentifier(triggerName))
+            .AppendLine()
+            .Append("    AFTER UPDATE OR DELETE ON ")
+            .Append(tableName)
+            .AppendLine()
+            .AppendLine("    FOR EACH ROW")
+            .Append("    EXECUTE FUNCTION ")
+            .Append(functionFullName)
+            .AppendLine("();");
+
+        EndStatement(builder);
     }
 
     #endregion
